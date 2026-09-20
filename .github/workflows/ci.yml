@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    name: Engine protocol and budgets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Pure protocol tests intentionally have no model, MLX, or network fixture.
+      - run: python -m pip install pytest==9.1.1 ruff==0.16.8
+      - run: python -m pytest engine/tests -q
+        env:
+          PYTHONPATH: engine
+      - run: ruff check engine Scripts/smoke-model.py
+
+  native:
+    name: Native controller and development bundle
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+      - run: bash Scripts/build.sh --development
+      - run: codesign --verify --strict '.build/Free Hand.app'
+      - name: Package non-notarized development artifact
+        run: ditto -c -k --sequesterRsrc --keepParent '.build/Free Hand.app' Free-Hand-development.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Free-Hand-development-${{ runner.arch }}
+          path: Free-Hand-development.zip
+          retention-days: 7

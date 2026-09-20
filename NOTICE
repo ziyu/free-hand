@@ -1,0 +1,41 @@
+Free Hand
+Copyright 2026 Free Hand contributors
+
+This product includes modified source from Third Hand:
+https://github.com/shhivv/third-hand
+Source revision: 430394b35dbb44ff8b303bf19da29b0828d92bd2
+Copyright (c) 2026 Shiv Shanmugam <shiv@tryisle.com>
+Licensed under MIT; full notice in ThirdParty/third-hand.LICENSE.
+Derived portions: native accessibility observation, window snapshots, input
+controller, text-field focus, OCR, action verification, overlay/status panels,
+hotkey handling, text candidate extraction, and associated tests.
+Free Hand modifies the controller, UI, safety policy, build, and tests, removes
+the remote Jev client, Keychain API keys and CDP discovery, and adds local MLX
+inference. Free Hand is an independent product, not an official upstream release.
+
+This product depends on laya-mlx (downloaded during explicit engine setup):
+https://github.com/mizorewww/laya-mlx
+Source revision: fc1df62828a3fedf4d8229fdac1cbd85f1cdf337
+Copyright 2026 laya-mlx contributors
+Licensed under Apache-2.0; license and upstream NOTICE are reproduced in
+ThirdParty/laya-mlx.LICENSE and ThirdParty/laya-mlx.NOTICE.
+Free Hand's no-truncation token accounting follows the laya-mlx question
+format and explicitly checks it against the pinned implementation in live tests.
+
+laya-mlx includes software derived from Laya:
+https://github.com/NandhaKishorM/laya
+Copyright Convai Innovations and Laya contributors. Licensed under Apache-2.0.
+See the reproduced laya-mlx NOTICE for its source revision and attribution.
+
+Model weights are NOT included in this source repository or app bundle.
+Explicit setup downloads a pinned multilingual MLX checkpoint from:
+https://huggingface.co/aac6fef/laya-multilingual-mlx
+Revision: ba40c87fcb357f1643d04d71323af9cdc3b9e591
+Weight SHA-256: 7fc5834af4d8fdfb268d272a9d1a66e5819a0daac98241651c4c888cc43adff1
+Original model: convaiinnovations/laya-multilingual
+Original revision: 052592a15d198d9ad47da779604259b10b47b7aa
+Checkpoint licensing remains governed by its model card and upstream license;
+Free Hand's MIT license does not relicense model weights or other dependencies.
+
+All other dependencies retain their respective licenses. Exact Python versions
+and integrity hashes are recorded in engine/uv.lock.

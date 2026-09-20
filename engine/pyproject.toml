@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "free-hand-engine"
+version = "0.1.0"
+description = "Private stdio Laya-MLX decision engine for Free Hand"
+requires-python = ">=3.11,<3.14"
+license = "MIT"
+dependencies = [
+  "laya-mlx @ git+https://github.com/mizorewww/laya-mlx.git@fc1df62828a3fedf4d8229fdac1cbd85f1cdf337",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.12,<1"]
+
+[project.scripts]
+free-hand-engine = "free_hand_engine.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["free_hand_engine"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: requires the downloaded checkpoint and Apple Silicon"]
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["free_hand_engine"]
