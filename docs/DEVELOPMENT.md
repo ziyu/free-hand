@@ -35,6 +35,13 @@ parameters or model-controlled paths.
 
 ## Signing and identity continuity
 
+The `.freehand-signing-identity` value `-` pins a *mode*, not a stable developer
+identity. Ad-hoc code has a cdhash-based designated requirement; rebuilding code
+changes it. The build prints an explicit warning when replacing that identity.
+It never relaxes the requirement to a bundle-ID-only match or silently imports a
+new certificate. The permission panel shows the exact currently running path,
+version and hash so an old enabled row is not mistaken for an effective grant.
+
 `--development` explicitly requests an ad-hoc local developer build. This is not
 notarization, and macOS permissions may have to be granted again after updates.
 It is not suitable as a polished public download.
@@ -78,6 +85,19 @@ bundle ID and whether the configured Python executable exists. The Python doctor
 reports hardware and checkpoint installation metadata. Neither doctor output is
 a full UI automation test. Worker startup performs actual file verification and
 model loading.
+
+For authorization reports, prefer launching the same app via Launch Services:
+
+```bash
+mkdir -p .build
+open -n -g -W -a "$PWD/Free Hand.app" --args \
+  --permission-check "$PWD/.build/permissions.json"
+```
+
+This reports current-process trust, event-posting preflight, external window-
+reference read/error, and the actual executable's signing identity. It does not
+read TCC databases or infer a checkbox's state. A positive unit-test fixture or
+helper's authorization is never evidence that the installed app is authorized.
 
 If model loading fails, use Repair or rerun setup. No inference path downloads
 missing files silently. If a task is cancelled during an inference request, the

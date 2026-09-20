@@ -22,7 +22,7 @@ checkpoint entirely on your Apple Silicon Mac.
 
 ## What is implemented
 
-| Capability | v0.1.1 |
+| Capability | v0.1.2 |
 | --- | --- |
 | Native setup button, menu-bar entry, task conversation | Always opens, even before permission/model setup |
 | Application picker, draft and result history | Explicit process identity; in-memory session only |
@@ -36,6 +36,7 @@ checkpoint entirely on your Apple Silicon Mac.
 | Task verification | Exact value/action checks for literal commands; separate model completion check for other tasks |
 | Model setup | In-app installer, pinned dependencies, explicit download, checksum verification |
 | Diagnostics | Native `--doctor`, engine doctor, real-inference smoke tests |
+| Accessibility detection | Same-process trust, external read and input preflight; explicit refresh/connect and identity details |
 | Safe practice app | Disposable native Playground, no network or personal data |
 | Windows/Linux, isolated background desktop, writing generation | **Not supported** |
 
@@ -90,6 +91,23 @@ In the setup window, enable **Accessibility** for this exact `Free Hand.app`.
 Screen Recording is optional, used only when an application exposes too little
 accessibility information. Follow macOS's quit/reopen instruction when requested.
 The model can also be installed or repaired from the setup window once uv exists.
+
+**Already enabled, but the app says it is unavailable?** Click **重新检测** in
+the conversation or setup page. Free Hand now distinguishes a system checkbox
+from effective authorization of the running executable. If trust state is stale
+but both actual external AX access and OS input preflight succeed, it accepts
+that verified access. A denied API or missing input permission still stops input.
+Temporary target-app errors are not reported as proof that you failed to enable
+the setting.
+
+For a stale entry after an ad-hoc rebuild, click **连接当前版本**, open diagnostic
+details, and use **定位当前应用** to identify the exact bundle. In System Settings,
+remove the old Free Hand entry, add this exact app using **+**, and enable it.
+The next refresh checks again; nothing is auto-sent and the draft stays in memory.
+Development signatures are tied to the rebuilt code hash; merely retaining the
+same app name or `-` signing-mode file does not preserve the previous hash. Use a
+stable signing certificate for identity continuity across updates. Free Hand does
+not edit TCC, weaken its signing requirement, or make a denied grant appear green.
 
 Click **开始对话** at the top of the main window or in the menu bar. Select a
 running app under **操作应用**, enter a command, then click **发送指令** or press
@@ -179,6 +197,12 @@ FREEHAND_EXPERIMENTAL_ACCURACY=1 swift test --filter testExperimentalModelOnlyAc
 
 # Actual installed application identity and macOS permission state.
 "Free Hand.app/Contents/MacOS/FreeHand" --doctor
+
+# Launch via macOS, not as a terminal-inherited command-line executable.
+# Reports only permission/signature metadata, never screen contents.
+mkdir -p .build
+open -n -g -W -a "$PWD/Free Hand.app" --args \
+  --permission-check "$PWD/.build/permissions.json"
 ```
 
 Unit tests do not prove permission-gated real-app control. See

@@ -42,9 +42,19 @@ if $DEVELOPMENT; then codesign --force --sign - "$APP"
 else codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"; fi
 codesign --verify --strict "$APP"
 INSTALLED="$ROOT/Free Hand.app"
+if [[ -d "$INSTALLED" && "$IDENTITY" == - ]]; then
+  OLD_REQUIREMENT="$(codesign -d -r- "$INSTALLED" 2>&1 | sed -n 's/^#\{0,1\} *designated => //p')"
+  NEW_REQUIREMENT="$(codesign -d -r- "$APP" 2>&1 | sed -n 's/^#\{0,1\} *designated => //p')"
+  if [[ -n "$OLD_REQUIREMENT" && "$OLD_REQUIREMENT" != "$NEW_REQUIREMENT" ]]; then
+    echo "WARNING: This ad-hoc update changes the permission-bearing code identity." >&2
+    echo "An enabled System Settings entry for the old hash may not authorize this build." >&2
+    echo "Free Hand will report the actual process/API state; it will not reset or bypass permissions." >&2
+  fi
+fi
 if [[ -d "$INSTALLED" && "$IDENTITY" != - ]]; then
-  REQUIREMENT="$(codesign -d -r- "$INSTALLED" 2>&1 | sed -n 's/^designated => //p')"
-  [[ -n "$REQUIREMENT" ]] && codesign --verify --strict -R "=$REQUIREMENT" "$APP"
+  REQUIREMENT="$(codesign -d -r- "$INSTALLED" 2>&1 | sed -n 's/^#\{0,1\} *designated => //p')"
+  [[ -n "$REQUIREMENT" ]] || { echo "Could not read installed signing requirement; refusing identity change." >&2; exit 1; }
+  codesign --verify --strict -R "=$REQUIREMENT" "$APP"
 fi
 if $INSTALL; then
   STAGE="$(mktemp -d "$ROOT/.build/install.XXXXXX")"

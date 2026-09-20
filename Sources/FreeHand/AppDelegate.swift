@@ -26,7 +26,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
     private var approvalPanel: ApprovalPanel?
     private var approvalWaiter: CheckedContinuation<Void, Error>?
     private var terminating = false
-    @Published var accessibilityReady = false
+    private let readAccessibility: (pid_t?) -> AccessibilityAccessSnapshot
+    @Published private(set) var accessibility = AccessibilityAccessSnapshot.unchecked
+    var accessibilityReady: Bool { accessibility.canControl }
+    lazy var appIdentity = RunningAppIdentity.current()
     @Published var screenReady = false
     @Published private(set) var activeTask = false
     @Published var lastError: String?
@@ -35,10 +38,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
         didSet { UserDefaults.standard.set(reviewEveryAction, forKey: "reviewEveryAction") }
     }
 
+    override convenience init() {
+        self.init(permissionCheck: { AccessibilityAccess.check(targetPID: $0) })
+    }
+    init(permissionCheck: @escaping (pid_t?) -> AccessibilityAccessSnapshot) {
+        self.readAccessibility = permissionCheck
+        super.init()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let destination = commandArgument("--permission-check") {
+            refreshPermissions()
+            let report = PermissionDiagnosticReport(identity: appIdentity, evidence: accessibility)
+            if let data = try? JSONEncoder().encode(report) { try? data.write(to: destination, options: .atomic) }
+            NSApp.terminate(nil)
+            return
+        }
         if CommandLine.arguments.contains("--doctor") {
+            refreshPermissions()
             let state: [String: Any] = ["app": "Free Hand", "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "development",
-                "accessibility": AXIsProcessTrusted(), "screenRecording": CGPreflightScreenCaptureAccess(),
+                "accessibility": accessibilityReady, "accessibilityTrusted": accessibility.trusted,
+                "accessibilityState": accessibility.state.rawValue, "inputPosting": accessibility.eventPosting,
+                "accessibilityProbe": accessibility.probeDescription, "screenRecording": screenReady,
+                "processID": appIdentity.processID, "bundlePath": appIdentity.bundlePath,
+                "codeHash": appIdentity.codeHash ?? "unknown", "adHocSigning": appIdentity.adHoc,
                 "engineInstalled": EnginePaths.installed, "bundleIdentifier": Bundle.main.bundleIdentifier ?? "unbundled",
                 "model": "aac6fef/laya-multilingual-mlx", "shortcut": ShortcutChoice.saved(in: .standard).title,
                 "conversationButton": true]
@@ -52,9 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
         observeApplications()
         hotkey.start() // Opening our own window never depends on Accessibility permission.
         refreshPermissions()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+        let permissionTimer = Timer(timeInterval: 1.5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshPermissions() }
         }
+        timer = permissionTimer
+        RunLoop.main.add(permissionTimer, forMode: .common)
         showSetup()
         if EnginePaths.installed { loadEngine() }
         if CommandLine.arguments.contains("--open-conversation") { showConversation() }
@@ -75,6 +100,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showConversation(); return true
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // System Settings can finish applying a grant after activation arrives.
+        // Sample now and again after the next run-loop turns; never retain a
+        // previously granted result as an override for a fresh OS denial.
+        refreshPermissions()
+        for delay in [0.25, 1.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, !self.terminating else { return }
+                self.refreshPermissions()
+            }
+        }
     }
 
     func showSetup() {
@@ -138,9 +176,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
                 if let value = ConversationApplication(app) { self?.lastExternalApplication = value }
             }
         })
-        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification,
+                     NSWorkspace.didWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
             workspaceObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.refreshApplications() }
+                Task { @MainActor in self?.refreshApplications(); self?.refreshPermissions() }
             })
         }
     }
@@ -149,7 +188,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
     }
 
     func refreshPermissions() {
-        accessibilityReady = AXIsProcessTrusted()
+        let previous = accessibility
+        accessibility = readAccessibility(conversation.selected?.resolve()?.processIdentifier)
+        if accessibility.canControl && !previous.canControl && conversation.notice == previous.message {
+            conversation.notice = nil
+        }
+        if !accessibility.canControl && activeTask { stopTask() }
         screenReady = CGPreflightScreenCaptureAccess()
     }
     func openPrivacy(_ section: String) {
@@ -157,8 +201,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
     }
     func enableAccessibility() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        if !AXIsProcessTrustedWithOptions(options) { openPrivacy("Privacy_Accessibility") }
+        _ = AXIsProcessTrustedWithOptions(options)
+        // Explicitly request for this signed process, not a helper or a URL-only
+        // settings visit. Only the user can approve the system prompt.
+        if !CGPreflightPostEventAccess() { _ = CGRequestPostEventAccess() }
+        openPrivacy("Privacy_Accessibility")
         refreshPermissions()
+    }
+    func revealCurrentApplication() {
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
     }
     func enableScreen() {
         if !CGPreflightScreenCaptureAccess() { _ = CGRequestScreenCaptureAccess() }
@@ -184,7 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
     var submissionBlocker: String? {
         if activeTask { return "任务运行中；打开对话或点击停止后再发送新指令。" }
         if conversation.selected == nil { return "请先选择一个正在运行的目标应用；若应用已退出，请重新选择。" }
-        if !accessibilityReady { return "尚未开启辅助功能：可以先输入指令，授权后再发送。" }
+        if !accessibilityReady { return accessibility.message }
         if engine.phase != .ready { return "本地引擎尚未就绪：可以先输入指令，加载完成后再发送。" }
         if conversation.draft.utf8.count > 4000 { return "指令太长，请缩短至 4000 字节以内。" }
         return nil
@@ -310,7 +361,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, TaskRunnerDelegate, Ob
             "draftPreserved": conversation.draft == "fixture draft · 你好", "noTaskStarted": !activeTask,
             "selfExcludedFromTargets": !conversation.applications.contains { $0.bundleIdentifier == "com.feibai.freehand" },
             "shortcut": hotkey.choice.title, "shortcutRegistered": hotkey.isRunning,
-            "shortcutStatus": hotkey.message, "accessibility": accessibilityReady, "engine": engine.phase.rawValue]
+            "shortcutStatus": hotkey.message, "accessibility": accessibilityReady, "engine": engine.phase.rawValue,
+            "accessibilityTrusted": accessibility.trusted, "inputPosting": accessibility.eventPosting,
+            "accessibilityState": accessibility.state.rawValue, "accessibilityProbe": accessibility.probeDescription]
         conversation.draft = ""
         if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) { try? data.write(to: destination) }
         if let view = conversationWindow?.contentView { Self.render(view, to: destination.deletingPathExtension().appendingPathExtension("png")) }

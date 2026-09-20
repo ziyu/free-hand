@@ -99,12 +99,7 @@ struct ConversationView: View {
             Divider()
             VStack(alignment: .leading, spacing: 10) {
                 if !delegate.accessibilityReady {
-                    HStack(alignment: .top) {
-                        Label("需要辅助功能权限才能控制应用。草稿不会丢失。", systemImage: "hand.raised")
-                            .font(.caption).fixedSize(horizontal: false, vertical: true)
-                        Spacer()
-                        Button("开启辅助功能") { delegate.enableAccessibility() }.accessibilityIdentifier("conversation.permission")
-                    }
+                    AccessibilityStatusView(delegate: delegate)
                 }
                 if engine.phase != .ready {
                     HStack {
@@ -144,6 +139,7 @@ struct ConversationView: View {
         .frame(minWidth: 560, minHeight: 560)
         .background(Color(nsColor: .windowBackgroundColor)).tint(accent)
         .onAppear { inputFocused = true }
+        .onChange(of: model.selectedID) { delegate.refreshPermissions() }
     }
     private func suggestion(_ text: String) -> some View {
         Button(text) { model.draft = text; inputFocused = true }.font(.caption)

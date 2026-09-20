@@ -1,5 +1,36 @@
 # Validation record
 
+## 0.1.2 — effective Accessibility authorization
+
+Local validation: **2026-09-20**, same Apple Silicon machine as 0.1.1.
+
+| Check | Actual result / scope |
+| --- | --- |
+| `swift test` | 95 discovered: 93 passed, 2 opt-in model tests skipped, 0 failures |
+| New permission regression tests | 14 passed: stale signals, explicit denial, self-probe exclusion, input preflight, target errors, UI/send consistency, no queued draft |
+| Python engine tests | 44 passed; no inference implementation change |
+| Release build and installed signature | Passed; same bundle ID and explicit ad-hoc signing mode retained |
+| Launch Services diagnostic | Actual 0.1.2 main app launched, valid signature; checked its own process, not a shell/helper's authorization |
+| Actual API state | `trusted=false`, `eventPosting=false`, external AX read returned **-25211 / apiDisabled** |
+| Actual GUI | Same negative state displayed; button opens conversation and preserves draft; engine ready; no task started |
+| Permission bypass or TCC edits | None |
+| Effective grant / real desktop control | **Not obtained or claimed**; the system still denied this build at validation time |
+
+The user's enabled System Settings checkbox was not treated as evidence that
+they had failed to enable it. Independently launching 0.1.1 via Launch Services
+also returned false, so the finding is not based only on stale UI state or a
+terminal-run doctor. Current and previous app bundles had different cdhash-based
+designated requirements. This is consistent with an old grant not matching a
+rebuilt ad-hoc binary, but no TCC database was read to assert which row was stored.
+
+The fix accepts a stale-negative trust query only when an actual external AX read
+AND event-posting preflight succeed. That positive fallback is covered by unit
+fixtures; it was **not** observed on this machine. An explicit API denial always
+wins. The installed app remains blocked until macOS grants it access, with
+**重新检测**, **连接当前版本** and the exact current bundle/signature shown in
+diagnostic details. Neither positive tests nor a local signing-mode pin can make
+an old grant authorize a changed binary.
+
 ## 0.1.1 — conversation entry and shortcut fix
 
 Local validation: **2026-09-20**, Apple Silicon / arm64, macOS 27.0 (26A428),

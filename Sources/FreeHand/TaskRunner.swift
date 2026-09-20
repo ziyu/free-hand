@@ -74,7 +74,7 @@ final class TaskRunner {
     }
 
     private func runLoop() async throws {
-        guard AXIsProcessTrusted() else { throw ControllerError.invalid("Enable Accessibility for Free Hand in System Settings.") }
+        try AccessibilityAccess.require(targetPID: target.pid)
         target.application.activate()
         try await Task.sleep(nanoseconds: 400_000_000)
         try checkFocus()
@@ -339,6 +339,7 @@ final class TaskRunner {
             try InputController.click(point, count: count, right: right)
         }
         try checkFocus()
+        try AccessibilityAccess.require(targetPID: target.pid)
         switch decision.operation {
         case "CLICK", "CLICK_TEXT":
             if let element, let ax = element.axElement {

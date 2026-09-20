@@ -53,9 +53,8 @@ struct SetupView: View {
                     }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 14))
                     VStack(alignment: .leading, spacing: 14) {
                         Label("执行前准备", systemImage: "slider.horizontal.3").font(.headline)
-                        row("1", "辅助功能 · Accessibility", delegate.accessibilityReady ? "已开启，可以读取并操作所选应用" : "执行时必需；不影响打开对话或输入草稿。", ready: delegate.accessibilityReady) {
-                            Button(delegate.accessibilityReady ? "设置" : "开启") { delegate.enableAccessibility() }
-                        }
+                        Text("辅助功能 · Accessibility").font(.subheadline.bold())
+                        AccessibilityStatusView(delegate: delegate)
                         Divider()
                         row("2", "本地决策引擎", installer.running ? installer.message : engine.detail, ready: engine.phase == .ready) {
                             if installer.running || engine.phase == .loading { ProgressView().controlSize(.small) }

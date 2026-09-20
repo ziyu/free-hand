@@ -27,6 +27,7 @@ enum InputController {
     }
 
     static func click(_ point: CGPoint, count: Int = 1, right: Bool = false) throws {
+        try AccessibilityAccess.requireEventPosting()
         for n in 1...count {
             guard let down = CGEvent(mouseEventSource: nil, mouseType: right ? .rightMouseDown : .leftMouseDown,
                                      mouseCursorPosition: point, mouseButton: right ? .right : .left),
@@ -40,6 +41,7 @@ enum InputController {
     }
 
     static func press(_ key: String, modifiers: [String] = []) throws {
+        try AccessibilityAccess.requireEventPosting()
         guard let code = keyCodes[key.lowercased()],
               let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true),
               let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else { throw ControllerError.invalid("Unsupported key") }
@@ -55,7 +57,7 @@ enum InputController {
     static func type(_ text: String, check: () throws -> Void) async throws {
         // Unicode events avoid changing or leaking the user's clipboard.
         for (index, character) in text.enumerated() {
-            if index % 16 == 0 { await Task.yield() }
+            if index % 16 == 0 { await Task.yield(); try AccessibilityAccess.requireEventPosting() }
             try Task.checkCancellation()
             try check()
             let (down, up) = try textEvents(for: character)
@@ -79,6 +81,7 @@ enum InputController {
     }
 
     static func scroll(_ delta: Int32, at point: CGPoint) throws {
+        try AccessibilityAccess.requireEventPosting()
         guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: delta, wheel2: 0, wheel3: 0) else { throw ControllerError.invalid("Cannot create scroll event") }
         event.location = point
         event.post(tap: .cghidEventTap)

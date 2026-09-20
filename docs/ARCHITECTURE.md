@@ -139,6 +139,26 @@ task success. Model confidence needs broader real-world calibration.
 
 ## Execution, approval, and verification
 
+`AccessibilityAccess` samples evidence in the controlling app: a nonprompting
+trust query, `CGPreflightPostEventAccess`, and a bounded (120 ms messaging limit)
+read of an external application's window references. No titles, editable values,
+pixels or input are involved. It prefers the selected app, otherwise the running
+Finder. Its own PID can never count as external-read evidence.
+
+An explicit `AXError.apiDisabled` always denies admission, even if another query
+is stale-positive. A stale-negative trust query may be overcome only by both an
+actual external AX read and a positive OS input preflight. Input access alone,
+read access alone, or `cannotComplete`/`noValue` never manufacture a grant. When
+trust and input access are positive, a target's lack of a window or temporary
+timeout is not misclassified as a missing user permission.
+
+The UI, send gate and runner use these same rules. Input synthesis preflights
+again at input boundaries. Refresh runs on activation, a deferred return-from-
+settings check, wake, target changes, and a common-mode timer. Revocation stops
+active work; granting never sends or queues a draft. No positive state is retained
+as a preference override. Code-signing diagnostics use public Security APIs;
+neither a matching app name nor the system settings row is treated as proof.
+
 Opening the conversation requires neither Accessibility nor a loaded model.
 Application choices contain PID, bundle ID and launch date, without reading UI
 contents. On send, the selected process is re-resolved and its identity checked;
@@ -195,7 +215,7 @@ Additional execution backends should keep the observation/action/approval
 contracts rather than reuse foreground CGEvents for hidden desktop claims.
 Broader autonomous navigation needs a representative desktop benchmark, better
 target retrieval, explicit application-specific safety policies, and calibrated
-completion checks. These are not claimed as implemented in v0.1.1.
+completion checks. These are not claimed as implemented in v0.1.2.
 
 ## Hotkey lifecycle
 
