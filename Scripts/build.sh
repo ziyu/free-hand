@@ -4,13 +4,19 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 DEVELOPMENT=false
 INSTALL=false
+ALLOW_ADHOC_IDENTITY_CHANGE=false
 for argument in "$@"; do
   case "$argument" in
     --development) DEVELOPMENT=true ;;
     --install) INSTALL=true ;;
-    *) echo "Usage: $0 [--development] [--install]" >&2; exit 1 ;;
+    --allow-adhoc-identity-change) ALLOW_ADHOC_IDENTITY_CHANGE=true ;;
+    *) echo "Usage: $0 [--development] [--install] [--allow-adhoc-identity-change]" >&2; exit 1 ;;
   esac
 done
+if $ALLOW_ADHOC_IDENTITY_CHANGE && { ! $DEVELOPMENT || ! $INSTALL; }; then
+  echo "--allow-adhoc-identity-change requires both --development and --install." >&2
+  exit 1
+fi
 IDENTITY_FILE="$ROOT/.freehand-signing-identity"
 if $DEVELOPMENT; then
   IDENTITY="-"
@@ -45,10 +51,20 @@ INSTALLED="$ROOT/Free Hand.app"
 if [[ -d "$INSTALLED" && "$IDENTITY" == - ]]; then
   OLD_REQUIREMENT="$(codesign -d -r- "$INSTALLED" 2>&1 | sed -n 's/^#\{0,1\} *designated => //p')"
   NEW_REQUIREMENT="$(codesign -d -r- "$APP" 2>&1 | sed -n 's/^#\{0,1\} *designated => //p')"
-  if [[ -n "$OLD_REQUIREMENT" && "$OLD_REQUIREMENT" != "$NEW_REQUIREMENT" ]]; then
+  if [[ -z "$OLD_REQUIREMENT" || -z "$NEW_REQUIREMENT" ]]; then
+    echo "Could not read both signing requirements; the installed app was not replaced." >&2
+    exit 1
+  fi
+  if [[ "$OLD_REQUIREMENT" != "$NEW_REQUIREMENT" ]]; then
     echo "WARNING: This ad-hoc update changes the permission-bearing code identity." >&2
     echo "An enabled System Settings entry for the old hash may not authorize this build." >&2
     echo "Free Hand will report the actual process/API state; it will not reset or bypass permissions." >&2
+    if $INSTALL && ! $ALLOW_ADHOC_IDENTITY_CHANGE; then
+      echo "Installation blocked BEFORE stopping or replacing your current app." >&2
+      echo "Keep using the installed version while repairing its permission grant." >&2
+      echo "For an intentional update only, add --allow-adhoc-identity-change and be prepared to authorize that new build." >&2
+      exit 1
+    fi
   fi
 fi
 if [[ -d "$INSTALLED" && "$IDENTITY" != - ]]; then

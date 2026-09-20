@@ -1,5 +1,42 @@
 # Validation record
 
+## Follow-up — confirmed stale requirement, unchanged 0.1.2 binary
+
+On 2026-09-20, a read-only query of Free Hand-specific macOS unified logs
+confirmed the actual denial instead of inferring it from the app's status label:
+
+```text
+Failed to match existing code requirement for subject com.feibai.freehand
+and service kTCCServiceAccessibility
+Stored requirement:  cdhash H"8fa2206cbed0955dc089257a49f8d36d644e0e8e"
+Current requirement: cdhash H"487c00d7f7220c9e6093ccdb252acb19811f0b60"
+SecStaticCodeCheckValidity status: -67050
+```
+
+The same logs showed that the user's app was running from `AppTranslocation`.
+A fresh Launch Services diagnostic reproduced a translocated bundle path and
+AX denial. The extracted canonical app had Keka quarantine metadata; the original
+local `.build` bundle did not. Their full file contents, signatures and executable
+SHA-256 matched. No security database was opened and no private UI content was read.
+
+The byte-identical local artifact was staged, verified and restored to the
+canonical repository-root path; the extracted copy was retained in a local backup.
+No compiler, signer, TCC reset, xattr-deletion command or security-setting override
+was run. The post-restore Launch Services diagnostic used the fixed repository
+path, retained the same `487c00d7…` code identity, and still returned `notEffective`
+because the old permission requirement had not been replaced. Moving/restoring an
+app does not grant Accessibility, and no successful grant is claimed here.
+
+Build-script changes prevent silently replacing this binary with yet another
+ad-hoc identity. They do not modify the installed 0.1.2 application. Rebinding the
+old grant still requires the user's System Settings approval.
+
+All six `Scripts/test-build-guard.py` cases passed using temporary fixture tools;
+shell syntax, Ruff and `git diff --check` passed. No Swift compilation or new
+app package was needed for these script/documentation-only changes. The final
+installed executable retained SHA-256
+`494a794fbbb20074a960b803ec2c73a7344ed38c077e37f0c281048c4e9dc080`.
+
 ## 0.1.2 — effective Accessibility authorization
 
 Local validation: **2026-09-20**, same Apple Silicon machine as 0.1.1.

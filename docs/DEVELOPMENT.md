@@ -37,10 +37,21 @@ parameters or model-controlled paths.
 
 The `.freehand-signing-identity` value `-` pins a *mode*, not a stable developer
 identity. Ad-hoc code has a cdhash-based designated requirement; rebuilding code
-changes it. The build prints an explicit warning when replacing that identity.
+changes it. An identity-changing ad-hoc installation now fails before stopping
+or replacing the installed app. To intentionally accept a new development build,
+use `--development --install --allow-adhoc-identity-change`; this explicit flag
+does not reset TCC or grant authorization. Identical-identity reinstalls and
+build-only runs do not require it. Unreadable signing requirements fail closed.
 It never relaxes the requirement to a bundle-ID-only match or silently imports a
 new certificate. The permission panel shows the exact currently running path,
 version and hash so an old enabled row is not mistaken for an effective grant.
+
+`python3 Scripts/test-build-guard.py` tests these gates with fake build/signing
+tools in temporary directories; it never signs, launches or replaces the real app.
+Do not re-extract a downloaded ZIP over the canonical local build while debugging
+permissions. An extraction utility can attach quarantine metadata, and Launch
+Services can then run a translocated copy. The diagnostic report's `bundlePath`
+identifies where the process actually runs; a requested launch path is not proof.
 
 `--development` explicitly requests an ad-hoc local developer build. This is not
 notarization, and macOS permissions may have to be granted again after updates.

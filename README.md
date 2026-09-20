@@ -87,6 +87,12 @@ With a valid Apple signing certificate, omit `--development` and set
 the pinned identity. Ad-hoc development updates may require granting permissions
 again. Never modify TCC databases or disable Gatekeeper to use this project.
 
+An ad-hoc update that changes the installed code identity now **stops before
+replacing the existing app**. Do not rebuild while troubleshooting a grant.
+For an intentional development update only, add
+`--allow-adhoc-identity-change` to `--development --install`, then authorize that
+new build in System Settings. The flag does not reset or grant any permission.
+
 In the setup window, enable **Accessibility** for this exact `Free Hand.app`.
 Screen Recording is optional, used only when an application exposes too little
 accessibility information. Follow macOS's quit/reopen instruction when requested.

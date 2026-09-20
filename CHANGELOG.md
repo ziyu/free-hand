@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — installation guard (no app binary update)
+
+- Stop identity-changing ad-hoc installs before replacing the user's current app;
+  require explicit `--allow-adhoc-identity-change` for intentional development updates.
+- Add isolated tests for changed, identical, unreadable and explicitly accepted
+  signing requirements. No TCC reset or permission grant is automated.
+- Record the confirmed stale-requirement denial and translocated launch diagnosis.
+  The local 0.1.2 application was restored from its byte-identical existing build,
+  without recompiling or re-signing it.
+
 ## 0.1.2
 
 - Replaced the single Accessibility boolean with same-process evidence: the

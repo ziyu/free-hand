@@ -26,7 +26,8 @@ jobs:
       - run: python -m pytest engine/tests -q
         env:
           PYTHONPATH: engine
-      - run: ruff check engine Scripts/smoke-model.py
+      - run: python Scripts/test-build-guard.py
+      - run: ruff check engine Scripts/smoke-model.py Scripts/test-build-guard.py
 
   native:
     name: Native controller and development bundle
